@@ -1,0 +1,673 @@
+import { useState, useEffect, useRef, useCallback } from “react”;
+
+// ─── colour tokens ──────────────────────────────────────────────────────────
+const C = {
+bg:      “#07080a”,
+panel:   “#0d0f12”,
+border:  “#1c2028”,
+green:   “#00ff9d”,
+blue:    “#00b4ff”,
+amber:   “#ffb800”,
+red:     “#ff3c3c”,
+dim:     “#2a3040”,
+text:    “#c8d0de”,
+muted:   “#4a5568”,
+hyper:   “#bf7fff”,
+};
+
+// ─── pure-JS ASV3.1 simulation (mirrors the Python exactly) ─────────────────
+
+function sdf(x) {
+const N = x.length;
+// normalise
+let mx = 0; for (let i = 0; i < N; i++) if (Math.abs(x[i]) > mx) mx = Math.abs(x[i]);
+const psi = x.map(v => v / (mx + 1e-8));
+// FFT (Cooley-Tukey, power-of-2)
+const fft = (re, im) => {
+const n = re.length;
+if (n <= 1) return;
+const re0 = [], re1 = [], im0 = [], im1 = [];
+for (let i = 0; i < n; i += 2) { re0.push(re[i]); im0.push(im[i]); re1.push(re[i+1]); im1.push(im[i+1]); }
+fft(re0, im0); fft(re1, im1);
+for (let k = 0; k < n / 2; k++) {
+const ang = -2 * Math.PI * k / n;
+const wr = Math.cos(ang), wi = Math.sin(ang);
+const tr = wr * re1[k] - wi * im1[k];
+const ti = wr * im1[k] + wi * re1[k];
+re[k]       = re0[k] + tr; im[k]       = im0[k] + ti;
+re[k+n/2]   = re0[k] - tr; im[k+n/2]   = im0[k] - ti;
+}
+};
+// pad to power of 2
+let M = 1; while (M < N) M <<= 1;
+const re = new Array(M).fill(0), im = new Array(M).fill(0);
+for (let i = 0; i < N; i++) re[i] = psi[i];
+fft(re, im);
+// rho = |psi_hat|^2
+const rho = re.map((r, i) => r * r + im[i] * im[i]);
+// freq
+const k = Array.from({length: M}, (_, i) => i < M/2 ? i/M : (i-M)/M);
+const E  = rho.reduce((s, v) => s + v, 0) + 1e-12;
+const F  = rho.reduce((s, v, i) => s + k[i] * v, 0) / E;
+const U  = rho.reduce((s, v, i) => s + Math.pow(Math.abs(k[i]), 4) * v, 0) / E - 3.0;
+const delta = U - 3.5;
+return { E, F, U, delta };
+}
+
+function barrierB(x, R) {
+const norm2 = x.reduce((s, v) => s + v * v, 0);
+return norm2 / (R * R) - 1.0;
+}
+
+function projA(x, R) {
+const norm = Math.sqrt(x.reduce((s, v) => s + v * v, 0));
+if (norm <= R + 1e-12) return x.slice();
+return x.map(v => v * (R / norm));
+}
+
+function nirk_V(x) {
+const n = x.length;
+const E = x.reduce((s, v) => s + v * v, 0) / n;
+// simplified resonance: sample 32 random pairs seeded
+let R = 0;
+const pairs = 32;
+for (let p = 0; p < pairs; p++) {
+const i = (p * 17) % n, j = (p * 31 + 7) % n;
+const d = Math.abs(x[i] - x[j]);
+const dist = Math.abs(i - j) / n;
+const K = Math.exp(-dist * dist / (2 * 0.09));
+R += K * d * d;
+}
+return E + R / (2 * pairs);
+}
+
+class ASV3Engine {
+constructor(dim = 64) {
+this.dim    = dim;
+this.dt     = 0.05;
+this.t      = 0;
+this.step   = 0;
+this.budget = 5.0;
+this.V_eq   = 1.0;
+this.prevV  = null;
+this.prevTSC = null;
+this.tscHistory = [];
+this.violations = 0;
+this.phase  = “GREEN”;
+this.glsmStep = 1;
+this.consecGreen = 0;
+this.prevPhase = “GREEN”;
+this.lharBuffer = [];
+}
+
+get R() { return Math.sqrt(Math.max(this.V_eq + this.budget, 1e-8)); }
+
+tighten(sirVal) {
+if (sirVal > 1.0) {
+this.budget = Math.max(this.budget - Math.min(0.001 * (sirVal - 1.0), 0.01), 0.1);
+}
+}
+
+computePhase(delta, vra) {
+if      (delta <= -0.5 && vra < 1.0) return “GREEN”;
+else if (delta <=  0.0)              return “BLUE”;
+else if (delta <=  1.0)              return “AMBER”;
+else                                 return “RED”;
+}
+
+computeVRA(x, delta, F) {
+const t1 = 1.5 / (1 + Math.exp(-delta));
+const t3 = 0.5 * x.reduce((s, v) => s + Math.abs(v), 0) /
+(1 + Math.sqrt(x.reduce((s, v) => s + v * v, 0)));
+return t1 + t3;
+}
+
+computeTSC(governed, sifLayer, xRef, uNorm, phase, sifOk) {
+const dim = this.dim;
+const layerNorm = (arr) => Math.sqrt(arr.reduce((s, v) => s + v * v, 0)) / (Math.sqrt(dim) + 1e-12);
+const phi_sum = layerNorm(governed) + layerNorm(sifLayer) + layerNorm(xRef);
+const u_ultra = uNorm / (Math.sqrt(dim) + 1e-12);
+const s_tau   = 0;
+let tsc = (phi_sum + u_ultra + s_tau) / (3 + 2);
+if (phase === “GREEN”) tsc *= 1.05;
+const hyper = tsc > 1.0;
+const deriv = this.prevTSC !== null ? (tsc - this.prevTSC) / this.dt : 0;
+this.prevTSC = tsc;
+this.tscHistory.push(tsc);
+return { tsc, hyper, deriv, phi_sum, u_ultra };
+}
+
+run(signal) {
+this.t    += this.dt;
+this.step += 1;
+const dim  = this.dim;
+
+```
+// resize / interpolate signal
+let x = new Array(dim);
+for (let i = 0; i < dim; i++) {
+  const src = i / (dim - 1) * (signal.length - 1);
+  const lo  = Math.floor(src), hi = Math.min(lo + 1, signal.length - 1);
+  x[i] = signal[lo] + (src - lo) * (signal[hi] - signal[lo]);
+}
+
+const xRef = x.slice();
+// PBES
+let pbes = false;
+const mxAbs = Math.max(...x.map(Math.abs));
+if (mxAbs > 5) { x = x.map(v => v * 5 / mxAbs); pbes = true; }
+
+// SDF
+const { E, F, U, delta } = sdf(x);
+
+// AGGL gate (simplified: if delta>0, compute correction proportional to delta)
+let uNorm = 0;
+if (delta > 0) uNorm = Math.min(Math.abs(delta), 1.0) * 8.0 * this.dt;
+
+// SIF drift (simplified)
+const I = x.reduce((s, v) => s + v * v, 0) / dim;
+const sifLayer = x.map(v => v / (Math.sqrt(I) + 1e-8));
+
+// VRA
+const vra = this.computeVRA(x, delta, F);
+
+// SIR inertia
+const siren = Math.min(1.0 / (Math.abs(Math.exp(Math.min(24 * F * F * F, 500)) - delta) + 1e-8), 1e6);
+
+// Phase
+const rawPhase = this.computePhase(delta, vra);
+this.prevPhase = this.phase;
+this.phase     = rawPhase;
+
+// GLSM step
+if      (rawPhase === "GREEN") { this.consecGreen++; this.glsmStep = this.consecGreen % 2 === 1 ? 1 : 2; }
+else if (rawPhase === "BLUE")  { this.glsmStep = 3; }
+else if (rawPhase === "AMBER") { this.glsmStep = vra < 2.5 ? 4 : 5; }
+else                           { this.glsmStep = 6; }
+
+// NIRK Lyapunov
+const V_now  = nirk_V(x);
+const dVdt   = this.prevV !== null ? (V_now - this.prevV) / this.dt : 0;
+this.prevV   = V_now;
+
+// TSC
+const tscResult = this.computeTSC(x, sifLayer, xRef, uNorm, rawPhase, true);
+
+// Hard projection onto A
+const R = this.R;
+const governed = projA(x, R);
+const B = barrierB(governed, R);
+const invariantOk = B <= 1e-6;
+if (!invariantOk) this.violations++;
+
+// Budget tightening
+this.tighten(siren);
+
+return {
+  step: this.step,
+  t: this.t,
+  delta,
+  phase: rawPhase,
+  glsmStep: this.glsmStep,
+  vra,
+  sirInertia: siren,
+  uNorm,
+  tsc:      tscResult.tsc,
+  tscHyper: tscResult.hyper,
+  tscDeriv: tscResult.deriv,
+  phiSum:   tscResult.phi_sum,
+  lyapV:    V_now,
+  lyapdVdt: dVdt,
+  lyapDec:  dVdt < 0,
+  barrierB: B,
+  R,
+  invariantOk,
+  violations: this.violations,
+  pbes,
+  tscMean: this.tscHistory.reduce((s, v) => s + v, 0) / (this.tscHistory.length || 1),
+  tscPeak: Math.max(...this.tscHistory, 0),
+  budget: this.budget,
+};
+```
+
+}
+}
+
+// ─── sparkline ──────────────────────────────────────────────────────────────
+function Spark({ data, color, height = 36, min, max }) {
+if (!data || data.length < 2) return null;
+const w = 200, h = height;
+const lo = min ?? Math.min(…data);
+const hi = max ?? Math.max(…data);
+const range = hi - lo || 1;
+const pts = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - ((v - lo) / range) * h}`).join(” “);
+return (
+<svg width=“100%” viewBox={`0 0 ${w} ${h}`} style={{ display: “block” }}>
+<polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" />
+</svg>
+);
+}
+
+// ─── phase badge ────────────────────────────────────────────────────────────
+function PhaseBadge({ phase, hyper }) {
+const col = { GREEN: C.green, BLUE: C.blue, AMBER: C.amber, RED: C.red }[phase] || C.text;
+return (
+<span style={{
+display: “inline-flex”, alignItems: “center”, gap: 6,
+padding: “3px 10px”, borderRadius: 2,
+border: `1px solid ${col}33`,
+background: `${col}11`,
+color: col,
+fontFamily: “‘Space Mono’, monospace”,
+fontSize: 11, fontWeight: 700, letterSpacing: 2,
+}}>
+<span style={{
+width: 7, height: 7, borderRadius: “50%”,
+background: col,
+boxShadow: `0 0 6px ${col}`,
+animation: phase === “RED” ? “pulse 0.8s infinite” : “none”
+}} />
+{phase}{hyper ? “ ★HYPER” : “”}
+</span>
+);
+}
+
+// ─── metric tile ────────────────────────────────────────────────────────────
+function Tile({ label, value, unit = “”, color = C.text, sub, spark, sparkMin, sparkMax, wide }) {
+return (
+<div style={{
+background: C.panel,
+border: `1px solid ${C.border}`,
+borderTop: `2px solid ${color}44`,
+padding: “12px 14px”,
+gridColumn: wide ? “span 2” : undefined,
+display: “flex”, flexDirection: “column”, gap: 4,
+position: “relative”, overflow: “hidden”,
+}}>
+<div style={{ color: C.muted, fontSize: 9, letterSpacing: 3, fontFamily: “‘Space Mono’, monospace” }}>
+{label}
+</div>
+<div style={{ color, fontFamily: “‘Space Mono’, monospace”, fontSize: 20, fontWeight: 700, lineHeight: 1 }}>
+{value}<span style={{ fontSize: 11, marginLeft: 3, color: C.muted }}>{unit}</span>
+</div>
+{sub && <div style={{ color: C.muted, fontSize: 10, fontFamily: “‘Space Mono’, monospace” }}>{sub}</div>}
+{spark && spark.length > 2 && (
+<div style={{ marginTop: 4, opacity: 0.6 }}>
+<Spark data={spark} color={color} height={28} min={sparkMin} max={sparkMax} />
+</div>
+)}
+</div>
+);
+}
+
+// ─── GLSM step ladder ───────────────────────────────────────────────────────
+const STEP_LABELS = {
+1: “GREEN — Nominal admissible”,
+2: “GREEN — Stable, AGGL=0”,
+3: “BLUE  — Monitoring”,
+4: “AMBER — Pre-emptive diagnostics”,
+5: “AMBER — Intervention imminent”,
+6: “RED   — AGGL triggered”,
+7: “RED   — Steering to manifold”,
+8: “BLUE  — SIR diagnostics”,
+9: “GREEN — Delta reducing”,
+10: “BLUE  — AMPO evaluation”,
+11: “GREEN — Admissibility restored”,
+12: “GREEN — Identity locked ✓”,
+};
+
+function GLSMTrace({ stepHistory }) {
+const recent = stepHistory.slice(-20);
+return (
+<div style={{ display: “flex”, gap: 3, alignItems: “flex-end”, height: 40, padding: “0 2px” }}>
+{recent.map((s, i) => {
+const col = s <= 2 ? C.green : s <= 3 ? C.blue : s <= 5 ? C.amber : C.red;
+const h = (s / 12) * 34 + 6;
+return (
+<div key={i} title={STEP_LABELS[s]} style={{
+width: 8, height: h, background: col, borderRadius: 1,
+opacity: 0.4 + 0.6 * (i / (recent.length - 1)),
+flexShrink: 0,
+}} />
+);
+})}
+</div>
+);
+}
+
+// ─── signal presets ─────────────────────────────────────────────────────────
+function makeSignal(mode, t, dim = 128) {
+const arr = new Array(dim);
+for (let i = 0; i < dim; i++) {
+const x = i / dim;
+let v = 0;
+if (mode === “nominal”)  v = Math.sin(2 * Math.PI * 3 * x + t * 0.1) * 0.8;
+if (mode === “stressed”) v = Math.sin(2 * Math.PI * 3 * x + t * 0.1) * 0.8
++ (Math.random() - 0.5) * 2.0 * Math.max(0, t - 80) / 40;
+if (mode === “chaos”)    v = (Math.random() - 0.5) * 6;
+if (mode === “recovery”) v = t < 60
+? (Math.random() - 0.5) * 5
+: Math.sin(2 * Math.PI * 3 * x + t * 0.1) * 0.5 * (t - 60) / 40;
+arr[i] = v;
+}
+return arr;
+}
+
+// ─── main demo ──────────────────────────────────────────────────────────────
+export default function ASV3Demo() {
+const engineRef  = useRef(null);
+const stepRef    = useRef(0);
+const rafRef     = useRef(null);
+const [running,  setRunning]  = useState(false);
+const [mode,     setMode]     = useState(“nominal”);
+const [result,   setResult]   = useState(null);
+const [history,  setHistory]  = useState({
+delta: [], tsc: [], lyapV: [], barrier: [], vra: [], budget: [], phase: [],
+});
+const [stepHist, setStepHist] = useState([1]);
+const [stats,    setStats]    = useState({ green: 0, blue: 0, amber: 0, red: 0, total: 0 });
+
+const reset = useCallback(() => {
+engineRef.current = new ASV3Engine(64);
+stepRef.current   = 0;
+setHistory({ delta: [], tsc: [], lyapV: [], barrier: [], vra: [], budget: [], phase: [] });
+setStepHist([1]);
+setResult(null);
+setStats({ green: 0, blue: 0, amber: 0, red: 0, total: 0 });
+}, []);
+
+useEffect(() => { reset(); }, []);
+
+const tick = useCallback(() => {
+if (!engineRef.current) return;
+const sig = makeSignal(mode, stepRef.current++);
+const r   = engineRef.current.run(sig);
+setResult(r);
+setHistory(h => {
+const push = (arr, v) => { const a = […arr, v]; return a.length > 120 ? a.slice(-120) : a; };
+return {
+delta:   push(h.delta,   r.delta),
+tsc:     push(h.tsc,     r.tsc),
+lyapV:   push(h.lyapV,   r.lyapV),
+barrier: push(h.barrier, r.barrierB),
+vra:     push(h.vra,     r.vra),
+budget:  push(h.budget,  r.budget),
+phase:   push(h.phase,   r.phase),
+};
+});
+setStepHist(h => { const a = […h, r.glsmStep]; return a.length > 80 ? a.slice(-80) : a; });
+setStats(s => {
+const ns = { …s, total: s.total + 1 };
+if (r.phase === “GREEN”) ns.green++;
+else if (r.phase === “BLUE”)  ns.blue++;
+else if (r.phase === “AMBER”) ns.amber++;
+else                          ns.red++;
+return ns;
+});
+rafRef.current = setTimeout(tick, 80);
+}, [mode]);
+
+useEffect(() => {
+if (running) {
+rafRef.current = setTimeout(tick, 80);
+} else {
+clearTimeout(rafRef.current);
+}
+return () => clearTimeout(rafRef.current);
+}, [running, tick]);
+
+const fmt = (v, d = 4) => v === undefined || v === null ? “—” : Number(v).toFixed(d);
+
+const phaseColor = result ? { GREEN: C.green, BLUE: C.blue, AMBER: C.amber, RED: C.red }[result.phase] || C.text : C.muted;
+const total = stats.total || 1;
+
+return (
+<div style={{
+background: C.bg, minHeight: “100vh”, color: C.text,
+fontFamily: “‘Space Mono’, monospace”,
+padding: “0 0 40px”,
+}}>
+<style>{`@import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Bebas+Neue&display=swap'); * { box-sizing: border-box; margin: 0; padding: 0; } body { background: ${C.bg}; } @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} } @keyframes scan { 0%   { transform: translateY(-100%); opacity: 0; } 10%  { opacity: 0.6; } 90%  { opacity: 0.6; } 100% { transform: translateY(100vh); opacity: 0; } } .scanline { position: fixed; left: 0; right: 0; height: 2px; background: linear-gradient(transparent, ${C.green}22, transparent); animation: scan 4s linear infinite; pointer-events: none; z-index: 0; } button { cursor: pointer; font-family: 'Space Mono', monospace; } ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: ${C.bg}; } ::-webkit-scrollbar-thumb { background: ${C.border}; } .mode-btn { padding: 6px 14px; border: 1px solid ${C.border}; background: transparent; color: ${C.muted}; font-size: 10px; letter-spacing: 2px; transition: all 0.15s; border-radius: 2px; } .mode-btn.active { border-color: ${C.green}; color: ${C.green}; background: ${C.green}11; } .mode-btn:hover:not(.active) { border-color: ${C.dim}; color: ${C.text}; }`}</style>
+
+```
+  <div className="scanline" />
+
+  {/* ── HEADER ── */}
+  <div style={{
+    borderBottom: `1px solid ${C.border}`,
+    background: `${C.panel}cc`,
+    padding: "16px 28px",
+    display: "flex", alignItems: "center", justifyContent: "space-between",
+    position: "sticky", top: 0, zIndex: 10, backdropFilter: "blur(8px)",
+  }}>
+    <div>
+      <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: 4, color: C.green }}>
+        ABSOLUTE(0) STABILITY  <span style={{ color: C.muted, fontSize: 14 }}>v3.0.1</span>
+      </div>
+      <div style={{ fontSize: 9, color: C.muted, letterSpacing: 3, marginTop: 2 }}>
+        ASV3-FORMAL · QBN v8+ · TSC T-U° · KEMAR ARMANDO MORRISON
+      </div>
+    </div>
+
+    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+      {result && <PhaseBadge phase={result.phase} hyper={result.tscHyper} />}
+      <button
+        onClick={() => { if (!running) reset(); setRunning(r => !r); }}
+        style={{
+          padding: "7px 20px",
+          border: `1px solid ${running ? C.red : C.green}`,
+          background: running ? `${C.red}22` : `${C.green}22`,
+          color: running ? C.red : C.green,
+          fontSize: 11, letterSpacing: 3, borderRadius: 2,
+        }}
+      >
+        {running ? "■ HALT" : "▶ RUN"}
+      </button>
+      <button onClick={reset} className="mode-btn">RESET</button>
+    </div>
+  </div>
+
+  {/* ── SIGNAL MODE SELECTOR ── */}
+  <div style={{ padding: "12px 28px", borderBottom: `1px solid ${C.border}22`, display: "flex", gap: 8, alignItems: "center" }}>
+    <span style={{ fontSize: 9, letterSpacing: 3, color: C.muted, marginRight: 4 }}>SIGNAL MODE</span>
+    {["nominal", "stressed", "chaos", "recovery"].map(m => (
+      <button key={m} className={`mode-btn${mode === m ? " active" : ""}`}
+        onClick={() => { setMode(m); }}>
+        {m.toUpperCase()}
+      </button>
+    ))}
+  </div>
+
+  {/* ── MAIN GRID ── */}
+  <div style={{ padding: "20px 28px", display: "flex", flexDirection: "column", gap: 16 }}>
+
+    {/* Row 1: primary metrics */}
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+      <Tile
+        label="SPECTRAL DEVIATION Δ"
+        value={fmt(result?.delta)}
+        color={result?.delta > 0 ? C.red : result?.delta > -0.5 ? C.amber : C.green}
+        sub={result?.delta <= 0 ? "ADMISSIBLE" : "VIOLATION"}
+        spark={history.delta} sparkMin={-2} sparkMax={2}
+      />
+      <Tile
+        label="BARRIER B(x)"
+        value={fmt(result?.barrierB, 6)}
+        color={result?.barrierB <= 0 ? C.green : C.red}
+        sub={`R = ${fmt(result?.R, 4)}`}
+        spark={history.barrier} sparkMin={-1} sparkMax={0.5}
+      />
+      <Tile
+        label="TSC T-U° VALUE"
+        value={fmt(result?.tsc)}
+        color={result?.tscHyper ? C.hyper : C.blue}
+        sub={result?.tscHyper ? "★ HYPER-COHERENT" : `d/dt = ${fmt(result?.tscDeriv)}`}
+        spark={history.tsc} sparkMin={0} sparkMax={1.2}
+      />
+      <Tile
+        label="VRA RISK SCORE"
+        value={fmt(result?.vra)}
+        color={result?.vra > 2 ? C.red : result?.vra > 1.5 ? C.amber : C.green}
+        sub={`AGGL ‖uɡ‖ = ${fmt(result?.uNorm)}`}
+        spark={history.vra} sparkMin={0}
+      />
+    </div>
+
+    {/* Row 2: lyapunov, TSC extended, budget */}
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+      <Tile
+        label="LYAPUNOV V(x)"
+        value={fmt(result?.lyapV)}
+        color={result?.lyapDec ? C.green : C.amber}
+        sub={`dV/dt = ${fmt(result?.lyapdVdt)}  ${result?.lyapDec ? "↓ DECREASING" : "↑ RISING"}`}
+        spark={history.lyapV}
+      />
+      <Tile
+        label="ENERGY BUDGET"
+        value={fmt(result?.budget, 3)}
+        color={result?.budget < 1.5 ? C.red : result?.budget < 3 ? C.amber : C.green}
+        sub="ADMISSIBLE RADIUS²"
+        spark={history.budget} sparkMin={0} sparkMax={5}
+      />
+      <Tile
+        label="TSC ΦΣ CONTRIBUTION"
+        value={fmt(result?.phiSum)}
+        color={C.blue}
+        sub={`MEAN=${fmt(result ? history.tsc.reduce((s,v)=>s+v,0)/(history.tsc.length||1) : 0)}  PEAK=${fmt(result ? Math.max(...history.tsc,0) : 0)}`}
+      />
+      <Tile
+        label="INVARIANT CHECKER"
+        value={result?.violations ?? 0}
+        color={result?.violations === 0 ? C.green : C.red}
+        sub={result?.invariantOk ? "✓ B(x) ≤ 0  HELD" : "✗ VIOLATION"}
+      />
+    </div>
+
+    {/* Row 3: GLSM + phase distribution + live log */}
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr", gap: 10 }}>
+
+      {/* GLSM step */}
+      <div style={{ background: C.panel, border: `1px solid ${C.border}`, padding: "14px 16px", borderTop: `2px solid ${C.blue}44` }}>
+        <div style={{ fontSize: 9, color: C.muted, letterSpacing: 3, marginBottom: 8 }}>GLSM LIFECYCLE STEP</div>
+        <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 40, color: phaseColor, lineHeight: 1 }}>
+          {result?.glsmStep ?? "—"}
+        </div>
+        <div style={{ fontSize: 10, color: C.muted, marginTop: 6, lineHeight: 1.5 }}>
+          {STEP_LABELS[result?.glsmStep] ?? "—"}
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <GLSMTrace stepHistory={stepHist} />
+        </div>
+      </div>
+
+      {/* Phase distribution */}
+      <div style={{ background: C.panel, border: `1px solid ${C.border}`, padding: "14px 16px", borderTop: `2px solid ${C.amber}44` }}>
+        <div style={{ fontSize: 9, color: C.muted, letterSpacing: 3, marginBottom: 10 }}>PHASE DISTRIBUTION</div>
+        {[["GREEN", C.green], ["BLUE", C.blue], ["AMBER", C.amber], ["RED", C.red]].map(([p, c]) => {
+          const pct = ((stats[p.toLowerCase()] || 0) / total * 100);
+          return (
+            <div key={p} style={{ marginBottom: 8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, marginBottom: 3 }}>
+                <span style={{ color: c, letterSpacing: 2 }}>{p}</span>
+                <span style={{ color: C.muted }}>{pct.toFixed(1)}%</span>
+              </div>
+              <div style={{ height: 4, background: C.border, borderRadius: 2 }}>
+                <div style={{ height: "100%", width: `${pct}%`, background: c, borderRadius: 2, boxShadow: `0 0 6px ${c}` }} />
+              </div>
+            </div>
+          );
+        })}
+        <div style={{ marginTop: 12, fontSize: 9, color: C.muted }}>
+          TOTAL STEPS: <span style={{ color: C.text }}>{stats.total}</span>
+        </div>
+      </div>
+
+      {/* Live telemetry log */}
+      <div style={{ background: C.panel, border: `1px solid ${C.border}`, padding: "14px 16px", borderTop: `2px solid ${C.green}44` }}>
+        <div style={{ fontSize: 9, color: C.muted, letterSpacing: 3, marginBottom: 8 }}>LIVE TELEMETRY</div>
+        <div style={{
+          fontFamily: "'Space Mono', monospace", fontSize: 10, lineHeight: 1.7,
+          color: C.muted, maxHeight: 140, overflowY: "auto",
+        }}>
+          {result && [
+            [`STEP`,        result.step],
+            [`t`,           fmt(result.t, 3) + "s"],
+            [`delta`,       fmt(result.delta)],
+            [`phase`,       result.phase],
+            [`glsm_step`,   result.glsmStep],
+            [`barrier_B`,   fmt(result.barrierB, 6)],
+            [`R_admiss`,    fmt(result.R, 4)],
+            [`tsc`,         fmt(result.tsc)],
+            [`tsc_hyper`,   result.tscHyper ? "TRUE ★" : "false"],
+            [`vra_risk`,    fmt(result.vra)],
+            [`lyap_V`,      fmt(result.lyapV)],
+            [`lyap_dVdt`,   fmt(result.lyapdVdt)],
+            [`budget`,      fmt(result.budget, 3)],
+            [`violations`,  result.violations],
+            [`pbes_hit`,    result.pbes ? "TRUE" : "false"],
+          ].map(([k, v]) => (
+            <div key={k} style={{ display: "flex", gap: 8 }}>
+              <span style={{ color: C.dim, minWidth: 80 }}>{k}</span>
+              <span style={{
+                color: k === "phase" ? phaseColor :
+                       k === "tsc_hyper" && result.tscHyper ? C.hyper :
+                       k === "violations" && result.violations > 0 ? C.red :
+                       C.text
+              }}>{v}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+
+    {/* Row 4: barrier / TSC time series charts */}
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+      <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderTop: `2px solid ${C.green}44`, padding: "14px 16px" }}>
+        <div style={{ fontSize: 9, color: C.muted, letterSpacing: 3, marginBottom: 6 }}>
+          BARRIER B(x) HISTORY  <span style={{ color: C.green }}>— B(x) ≤ 0 means x ∈ A</span>
+        </div>
+        <Spark data={history.barrier} color={C.green} height={60} min={-1.2} max={0.8} />
+        <div style={{ fontSize: 9, color: C.muted, marginTop: 4 }}>
+          Zero-line = admissible boundary.  All values ≤ 0 = invariant maintained.
+        </div>
+      </div>
+      <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderTop: `2px solid ${C.hyper}44`, padding: "14px 16px" }}>
+        <div style={{ fontSize: 9, color: C.muted, letterSpacing: 3, marginBottom: 6 }}>
+          TSC T-U° HISTORY  <span style={{ color: C.hyper }}>— &gt;1.0 = HYPER-COHERENT</span>
+        </div>
+        <Spark data={history.tsc} color={C.hyper} height={60} min={0} max={1.3} />
+        <div style={{ fontSize: 9, color: C.muted, marginTop: 4 }}>
+          GREEN phase boosts TSC ×1.05.  TSC feeds back into AGSPL coupling.
+        </div>
+      </div>
+    </div>
+
+    {/* Row 5: Lyapunov + SDF delta */}
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+      <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderTop: `2px solid ${C.amber}44`, padding: "14px 16px" }}>
+        <div style={{ fontSize: 9, color: C.muted, letterSpacing: 3, marginBottom: 6 }}>LYAPUNOV V(x) — NIRK ENERGY</div>
+        <Spark data={history.lyapV} color={C.amber} height={60} />
+      </div>
+      <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderTop: `2px solid ${C.red}44`, padding: "14px 16px" }}>
+        <div style={{ fontSize: 9, color: C.muted, letterSpacing: 3, marginBottom: 6 }}>SDF Δ — SPECTRAL DEVIATION</div>
+        <Spark data={history.delta} color={C.red} height={60} min={-2} max={3} />
+        <div style={{ fontSize: 9, color: C.muted, marginTop: 4 }}>Δ ≤ 0 = admissible.  Δ &gt; 0 triggers AGGL gate.</div>
+      </div>
+    </div>
+
+    {/* Footer */}
+    <div style={{
+      borderTop: `1px solid ${C.border}`,
+      paddingTop: 14,
+      display: "flex", justifyContent: "space-between", alignItems: "center",
+      fontSize: 9, color: C.muted, letterSpacing: 2,
+    }}>
+      <span>ABSOLUTE(0) STABILITY FRAMEWORK — AS-3.0.1 (ASV3-FORMAL) · QBN v8+ · TSC T-U°</span>
+      <span>© KEMAR ARMANDO MORRISON — CODEX SOVEREIGN RESEARCH · MARCH 2026</span>
+    </div>
+  </div>
+</div>
+```
+
+);
+}
