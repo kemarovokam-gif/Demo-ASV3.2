@@ -1,0 +1,13 @@
+## Why this matters
+
+Most systems fail due to:
+- uncontrolled drift
+- instability under adversarial input
+- over-constrained freezing
+
+ASV3 demonstrates:
+- bounded evolution without collapse
+- adaptive constraint enforcement
+- real-time stability under stress
+
+This makes it suitable as a safety/control layer for AI and autonomous systems.
