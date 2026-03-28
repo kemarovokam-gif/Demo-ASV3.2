@@ -1,0 +1,65 @@
+# Absolute(0) Stability Framework (ASV3)
+
+A real-time invariant-governed stability engine for dynamic systems.
+
+ASV3 enforces bounded, safe system evolution under arbitrary inputs using:
+- Projection-based constraint enforcement
+- Lyapunov-style energy control
+- Adaptive budget tightening
+- Multi-layer coherence metrics (TSC)
+
+## Key Result
+Across 200-step multi-domain simulations:
+- 0 invariant violations
+- 100% bounded trajectories
+- Stable under adversarial and chaotic inputs
+
+## Demo
+[Run the live demo](link)
+
+## Use Cases
+- Autonomous systems (UAV/UGV)
+- LLM stability / gating (IGAS integration)
+- Cyber-physical safety layers
+
+## Quick Start
+
+git clone ...
+cd Demo-ASV3.2
+open index.html
+
+## Why this matters
+
+Most systems fail due to:
+- uncontrolled drift
+- instability under adversarial input
+- over-constrained freezing
+
+ASV3 demonstrates:
+- bounded evolution without collapse
+- adaptive constraint enforcement
+- real-time stability under stress
+
+This makes it suitable as a safety/control layer for AI and autonomous systems.
+
+Input Signal
+     ↓
+Spectral Analysis (SDF)
+     ↓
+Phase Detection (Δ, VRA)
+     ↓
+TSC Coherence Layer
+     ↓
+Lyapunov Energy (V)
+     ↓
+Projection + Barrier (Invariant Enforcement)
+     ↓
+Adaptive Budget Update
+     ↓
+Stable Output
+
+ASV3 provides system-level invariant enforcement.
+IGAS provides state-space control for LLMs.
+
+Together they form a unified stability architecture.
+
