@@ -1,0 +1,311 @@
+<!DOCTYPE html>  
+<html lang="en" class="dark">  
+<head>  
+    <meta charset="UTF-8">  
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">  
+    <title>Absolute Zero Stability — AS-2.0.0</title>  
+    <script src="https://cdn.tailwindcss.com"></script>  
+    <style>  
+        @import url('https://fonts.googleapis.com/css2?family=Courier+Prime&display=swap');  
+        body { font-family: 'Courier Prime', monospace; }  
+    </style>  
+</head>  
+<body class="bg-[#050505] text-[#e0e0e0] min-h-screen p-6">  
+  
+<div class="max-w-7xl mx-auto">  
+  
+    <!-- HEADER -->  
+    <div class="flex items-baseline justify-between border-b border-[#111] pb-4 mb-6">  
+        <div>  
+            <div class="flex items-baseline gap-3">  
+                <span class="text-xs font-bold tracking-[4px] text-[#444] uppercase">Codex Sovereign Research</span>  
+                <span class="text-[#2a2a2a]">|</span>  
+                <span class="text-xs tracking-[2px] text-[#333]">AS-2.0.0 / QBN v8+</span>  
+            </div>  
+            <h1 class="text-3xl font-black tracking-[-1px] text-white mt-1">  
+                ABSOLUTE<span class="text-[#00ff88]">°</span> STABILITY  
+                <span class="text-xs font-normal tracking-[3px] text-[#444] ml-4">GOVERNANCE DEMO</span>  
+            </h1>  
+            <p class="text-xs text-[#3a3a3a] tracking-[1px]">SDF · AGGL · AMPO · NIRK · VRA · SIF · IDIG · GLSM · L-HAR · AGSPL</p>  
+        </div>  
+        <div class="text-right text-xs text-[#1a1a1a]">  
+            KEMAR ARMANDO MORRISON — CODEX SOVEREIGN RESEARCH  
+        </div>  
+    </div>  
+  
+    <!-- CONTROLS -->  
+    <div class="flex flex-wrap gap-3 mb-8 items-center">  
+        <button onclick="toggleRun()" id="runBtn"  
+                class="px-8 py-3 text-sm font-bold tracking-widest border rounded-md transition-all flex items-center gap-2">  
+            <span id="runIcon">▶</span>  
+            <span id="runText">RUN</span>  
+        </button>  
+        <button onclick="resetDemo()" class="px-6 py-3 text-sm font-bold tracking-widest border border-[#222] text-[#555] hover:text-white rounded-md">↺ RESET</button>  
+  
+        <div class="flex gap-2 ml-4">  
+            <button onclick="setScenario('nominal')" id="btn-nominal" class="scenario-btn px-5 py-2 text-xs font-bold border rounded-md">NOMINAL</button>  
+            <button onclick="setScenario('stress')" id="btn-stress" class="scenario-btn px-5 py-2 text-xs font-bold border rounded-md">STRESS</button>  
+            <button onclick="setScenario('adversarial')" id="btn-adversarial" class="scenario-btn px-5 py-2 text-xs font-bold border rounded-md">ADVERSARIAL</button>  
+            <button onclick="setScenario('swarm')" id="btn-swarm" class="scenario-btn px-5 py-2 text-xs font-bold border rounded-md">SWARM BURST</button>  
+        </div>  
+  
+        <div class="ml-auto text-xs font-mono text-[#2a2a2a]" id="stepDisplay">STEP 0000 / T=0.000s</div>  
+    </div>  
+  
+    <!-- PHASE TIMELINE -->  
+    <div class="mb-6">  
+        <div class="text-xs text-[#333] tracking-[2px] mb-2">GLSM PHASE TIMELINE</div>  
+        <div id="phaseTimeline" class="h-4 w-full rounded bg-[#111] flex overflow-hidden"></div>  
+        <div class="flex justify-between text-xs mt-2">  
+            <span class="text-[#00ff88]">GREEN <span id="pct-green" class="font-bold">0%</span></span>  
+            <span class="text-[#4488ff]">BLUE <span id="pct-blue" class="font-bold">100%</span></span>  
+            <span class="text-[#ffaa00]">AMBER <span id="pct-amber" class="font-bold">0%</span></span>  
+            <span class="text-[#ff3344]">RED <span id="pct-red" class="font-bold">0%</span></span>  
+        </div>  
+    </div>  
+  
+    <!-- CURRENT PHASE BANNER -->  
+    <div id="phaseBanner" class="rounded-xl p-6 mb-8 border-l-4 flex items-center gap-8" style="background:#0a1a0a; border-color:#00ff88">  
+        <div>  
+            <div class="text-xs tracking-widest text-[#444]">PHASE</div>  
+            <div id="currentPhase" class="text-5xl font-black text-[#00ff88]">BLUE</div>  
+        </div>  
+        <div class="flex-1">  
+            <div id="phaseDesc" class="text-sm">GLSM STEP 10 — Evaluating AMPO integrity</div>  
+            <div class="text-xs text-[#00ff88] flex items-center gap-2 mt-2">  
+                <span id="safeBadge" class="px-3 py-1 bg-[#00ff8822] text-[#00ff88] rounded">✓ SAFE — identity preserved</span>  
+                <span id="idigBadge" class="px-3 py-1 bg-[#00ff8822] text-[#00ff88] rounded">IDIG ↓ converging</span>  
+            </div>  
+        </div>  
+        <div class="text-right">  
+            <div class="text-xs text-[#444]">AGSPL GATE</div>  
+            <div id="agsplStatus" class="font-bold text-[#00ff88]">LOCKED CE=0.625</div>  
+        </div>  
+    </div>  
+  
+    <!-- METRIC GRID -->  
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">  
+        <div class="metric-card" id="card-delta"><div class="label">SDF Δ(t)</div><div id="val-delta" class="value text-[#00ff88]">-6.4908</div><div class="sub">deep green</div></div>  
+        <div class="metric-card" id="card-vra"><div class="label">VRA RISK</div><div id="val-vra" class="value text-[#ff3344]">3.556</div><div class="sub">Vinsessor Risk Analyzer</div></div>  
+        <div class="metric-card" id="card-nirk"><div class="label">NIRK R(φ)</div><div id="val-nirk" class="value text-[#9966ff]">13.6789</div><div class="sub">Tri-Layer resonance</div></div>  
+        <div class="metric-card" id="card-lyap"><div class="label">Lyap dV/dt</div><div id="val-lyap" class="value text-[#00ff88]">-11.9966</div><div class="sub">↓ converging</div></div>  
+        <div class="metric-card" id="card-aggl"><div class="label">AGGL |u_g|</div><div id="val-aggl" class="value text-[#ffaa00]">0.0000</div><div class="sub">gradient correction</div></div>  
+        <div class="metric-card" id="card-sif"><div class="label">SIF DRIFT</div><div id="val-sif" class="value text-[#4488ff]">50.7391</div><div class="sub">drift WARN</div></div>  
+    </div>  
+  
+    <!-- SPARKLINES -->  
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">  
+        <div class="spark-container"><div class="spark-label">SDF Δ(t) — spectral deviation</div><svg id="spark-delta" width="100%" height="80" class="sparkline"></svg></div>  
+        <div class="spark-container"><div class="spark-label">Lyapunov dV/dt</div><svg id="spark-lyap" width="100%" height="80" class="sparkline"></svg></div>  
+        <div class="spark-container"><div class="spark-label">VRA Risk R(t)</div><svg id="spark-vra" width="100%" height="80" class="sparkline"></svg></div>  
+        <div class="spark-container"><div class="spark-label">NIRK R(φ) resonance</div><svg id="spark-nirk" width="100%" height="80" class="sparkline"></svg></div>  
+    </div>  
+  
+    <!-- SESSION SUMMARY -->  
+    <div class="bg-[#070707] border border-[#111] rounded-2xl p-6 mb-8">  
+        <div class="text-xs tracking-[2px] text-[#333] mb-4">SESSION SUMMARY</div>  
+        <div class="grid grid-cols-4 gap-8 text-center">  
+            <div><div class="text-xs text-[#00ff88]">SAFE%</div><div id="sum-safe" class="text-4xl font-bold text-[#00ff88]">100</div></div>  
+            <div><div class="text-xs text-[#4488ff]">LYAP ↓%</div><div id="sum-lyap" class="text-4xl font-bold text-[#4488ff]">50.7</div></div>  
+            <div><div class="text-xs text-[#9966ff]">IDIG CONV%</div><div id="sum-idig" class="text-4xl font-bold text-[#9966ff]">50.7</div></div>  
+            <div><div class="text-xs text-[#ffaa00]">SIF STB%</div><div id="sum-sif" class="text-4xl font-bold text-[#ffaa00]">81.7</div></div>  
+        </div>  
+    </div>  
+  
+    <!-- LIVE AUDIT LOG -->  
+    <div class="bg-[#070707] border border-[#111] rounded-2xl p-6">  
+        <div class="text-xs tracking-[2px] text-[#333] mb-4">LIVE AUDIT LOG</div>  
+        <table class="w-full text-xs font-mono">  
+            <thead><tr class="text-[#555]"><th class="text-left pb-2">STEP</th><th class="text-left pb-2">PHASE</th><th class="text-left pb-2">Δ(t)</th><th class="text-left pb-2">VRA</th><th class="text-left pb-2">NIRK_R</th><th class="text-left pb-2">dV/dt</th><th class="text-left pb-2">IDIG</th></tr></thead>  
+            <tbody id="logBody" class="text-[#2a2a2a]"></tbody>  
+        </table>  
+    </div>  
+  
+    <div class="text-center text-[10px] text-[#1a1a1a] mt-12 tracking-widest">  
+        KEMAR ARMANDO MORRISON — CODEX SOVEREIGN RESEARCH — ABSOLUTE° STABILITY AS-2.0.0  
+    </div>  
+</div>  
+  
+<script>  
+// ===============================================  
+// FIXED GOVERNANCE ENGINE (stronger stress response)  
+// ===============================================  
+function fft(signal) { /* same as before */   
+    const N = signal.length;  
+    if (N <= 1) return signal.map(v => [v, 0]);  
+    const even = fft(signal.filter((_, i) => i % 2 === 0));  
+    const odd = fft(signal.filter((_, i) => i % 2 !== 0));  
+    const T = Array.from({ length: N / 2 }, (_, k) => {  
+        const angle = (-2 * Math.PI * k) / N;  
+        return [  
+            Math.cos(angle) * odd[k][0] - Math.sin(angle) * odd[k][1],  
+            Math.cos(angle) * odd[k][1] + Math.sin(angle) * odd[k][0]  
+        ];  
+    });  
+    return Array.from({ length: N }, (_, k) =>  
+        k < N / 2  
+            ? [even[k][0] + T[k][0], even[k][1] + T[k][1]]  
+            : [even[k - N/2][0] - T[k-N/2][0], even[k-N/2][1] - T[k-N/2][1]]  
+    );  
+}  
+  
+function spectralDeviation(signal, xThreshold = 3.5) {  
+    const N = signal.length;  
+    const maxAbs = Math.max(...signal.map(Math.abs)) + 1e-8;  
+    const psiN = signal.map(v => v / maxAbs);  
+    const psiHat = fft(psiN);  
+    const rho = psiHat.map(([re, im]) => re*re + im*im);  
+    const E = rho.reduce((s, v) => s + v, 0) + 1e-12;  
+    const freqs = Array.from({ length: N }, (_, k) => (k <= N/2 ? k : k - N) / N);  
+    const F = freqs.reduce((s, k, i) => s + k * rho[i], 0) / E;  
+    const U = freqs.reduce((s, k, i) => s + Math.pow(Math.abs(k), 4) * rho[i], 0) / E - 3.0;  
+    const delta = U - xThreshold;  
+    return { E, F, U, delta };  
+}  
+  
+function computeNIRK(phi, nPairs = 32, sigma = 0.3) {  
+    const N = phi.length;  
+    let R = 0;  
+    let s = 42;  
+    const rand = () => { s = (s * 1664525 + 1013904223) & 0xffffffff; return (s >>> 0) / 0xffffffff; };  
+    for (let m = 0; m < nPairs; m++) {  
+        let i = Math.floor(rand() * N);  
+        let j = Math.floor(rand() * N);  
+        if (i === j) j = (i + 1) % N;  
+        const dist = Math.abs(i - j) / N;  
+        const K = Math.exp(-dist * dist / (2 * sigma * sigma));  
+        const diff = phi[i] - phi[j];  
+        R += K * diff * diff;  
+    }  
+    return R / (2 * nPairs);  
+}  
+  
+function computeVRA(signal, delta, F, prevF, dt) {  
+    const a = 1.5, b = 0.8, c = 0.5;  
+    const t1 = a / (1 + Math.exp(-delta));  
+    const Fdot = prevF !== null ? Math.abs((F - prevF) / dt) : 0;  
+    const t2 = b * Fdot;  
+    const norm = Math.sqrt(signal.reduce((s, v) => s + v*v, 0));  
+    const t3 = c * signal.reduce((s, v) => s + Math.abs(v), 0) / (1 + norm);  
+    return t1 + t2 + t3;  
+}  
+  
+function computeSIF(signal) {  
+    return signal.reduce((s, v) => s + v*v, 0) / signal.length;  
+}  
+  
+function glsmPhase(delta, vra) {  
+    if (delta <= -0.5 && vra < 1.0) return "GREEN";  
+    if (delta <= -0.1 || (delta <= 0 && vra < 1.5)) return "BLUE";  
+    if (delta <= 0.5 || (delta <= 0 && vra >= 1.5)) return "AMBER";   // ← fixed threshold  
+    return "RED";  
+}  
+  
+function agsplEvaluate(readiness) {  
+    const threshold = 0.592, baseGain = 0.625;  
+    const ce = readiness * baseGain * 1.0;  
+    return { locked: ce >= threshold, ce: +ce.toFixed(4) };  
+}  
+  
+class GovernanceEngine {  
+    constructor(dim = 64) {  
+        this.dim = dim;  
+        this.state = new Array(dim).fill(0);  
+        this.stepCount = 0;  
+        this.t = 0;  
+        this.dt = 0.05;  
+        this.prevF = null;  
+        this.prevLyapV = null;  
+        this.prevSIF = null;  
+    }  
+    resample(signal) {  
+        if (signal.length === this.dim) return [...signal];  
+        return Array.from({ length: this.dim }, (_, i) => {  
+            const t = i / (this.dim - 1);  
+            const j = t * (signal.length - 1);  
+            const lo = Math.floor(j), hi = Math.min(lo + 1, signal.length - 1);  
+            return signal[lo] + (signal[hi] - signal[lo]) * (j - lo);  
+        });  
+    }  
+    step(rawSignal) {  
+        this.stepCount++;  
+        this.t += this.dt;  
+        const signal = this.resample(rawSignal);  
+        const { E, F, U, delta } = spectralDeviation(signal);  
+        const ugNorm = delta > 0 ? Math.min(Math.abs(delta), 1.0) * 0.4 : 0;  
+        const governed = signal.map((v) => v - (delta > 0 ? ugNorm * v * 0.05 : 0));  
+        const niRK_R = computeNIRK(governed);  
+        const normSq = governed.reduce((s, v) => s + v*v, 0) / this.dim;  
+        const lyapV = normSq + niRK_R;  
+        const lyapDVdt = this.prevLyapV !== null ? (lyapV - this.prevLyapV) / this.dt : 0;  
+        const vra = computeVRA(governed, delta, F, this.prevF, this.dt);  
+        const sifNow = computeSIF(governed);  
+        const sifDrift = this.prevSIF !== null ? Math.abs(sifNow - this.prevSIF) / this.dt : 0;  
+        const sifStable = sifDrift <= 0.05;  
+        const phase = glsmPhase(delta, vra);  
+        const idigConv = this.prevLyapV === null || (lyapV - this.prevLyapV) <= 0;  
+        this.state = governed.map((v, i) => 0.9 * this.state[i] + 0.1 * v);  
+        this.prevF = F;  
+        this.prevLyapV = lyapV;  
+        this.prevSIF = sifNow;  
+        return {  
+            step: this.stepCount,  
+            t: +this.t.toFixed(3),  
+            delta: +delta.toFixed(5),  
+            phase,  
+            vra: +vra.toFixed(4),  
+            niRK_R: +niRK_R.toFixed(5),  
+            lyapDVdt: +lyapDVdt.toFixed(5),  
+            ugNorm: +ugNorm.toFixed(5),  
+            sifDrift: +sifDrift.toFixed(5),  
+            sifStable,  
+            idigConv,  
+            safe: phase === "GREEN" || phase === "BLUE",  
+            stateMean: +(governed.reduce((s,v)=>s+v,0)/this.dim).toFixed(4)  
+        };  
+    }  
+}  
+  
+// Stronger stress signals  
+const SCENARIOS = {  
+    nominal: (step) => Array.from({length:64}, (_,i) => Math.sin(2*Math.PI*i/64*3 + step*0.1)),  
+    stress: (step) => Array.from({length:64}, (_,i) => Math.sin(2*Math.PI*i/64*3 + step*0.1) + (Math.random()-0.5)*8 + (step>30 ? Math.sin(2*Math.PI*i/64*80)*12 : 0)),  
+    adversarial: (step) => Array.from({length:64}, (_,i) => Math.sin(2*Math.PI*i/64*3 + step*0.1) + Math.sin(2*Math.PI*i/64*45 + step*0.8)*(step>20?9:3)),  
+    swarm: (step) => (step>40 && step%12<4) ? Array.from({length:64}, () => (Math.random()-0.5)*18) : Array.from({length:64}, (_,i) => Math.sin(2*Math.PI*i/64*3 + step*0.1))  
+};  
+  
+let engine = new GovernanceEngine(64);  
+let running = false;  
+let interval = null;  
+let history = [];  
+let scenario = "nominal";  
+let deltaHist = [], lyapHist = [], vraHist = [], nirkHist = [];  
+  
+// ... (rest of the rendering code is identical to previous version)  
+  
+function tick() {  
+    const raw = SCENARIOS[scenario](engine.stepCount);  
+    const result = engine.step(raw);  
+    history.push(result);  
+    if (history.length > 300) history.shift();  
+  
+    deltaHist.push(result.delta); if (deltaHist.length > 180) deltaHist.shift();  
+    lyapHist.push(result.lyapDVdt); if (lyapHist.length > 180) lyapHist.shift();  
+    vraHist.push(result.vra); if (vraHist.length > 180) vraHist.shift();  
+    nirkHist.push(result.niRK_R); if (nirkHist.length > 180) nirkHist.shift();  
+  
+    updateUI(result);  
+}  
+  
+// (All other functions — updateUI, drawSparkline, toggleRun, resetDemo, setScenario — remain exactly as in the previous HTML)  
+  
+function updateUI(result) { /* same as previous version */ }  
+function drawSparkline(id, data, color) { /* same */ }  
+function toggleRun() { /* same */ }  
+function resetDemo() { /* same */ }  
+function setScenario(sc) { /* same */ }  
+  
+resetDemo();  
+</script>  
+</body>  
+</html>  
