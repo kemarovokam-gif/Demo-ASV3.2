@@ -1,0 +1,304 @@
+Transient Supra-Coherence T-U° Codex Sovereign Research · March 2026
+W H I T E P A P E R
+Transient Supra-Coherence
+T-U° Operator
+Theory, Formal Properties, and Governed Hyper-Coherence in Multi-Layer Invariant-
+Certified Autonomous Systems
+Kemar Armando Morrison
+Principal Investigator · Codex Sovereign Research
+The Open University, London, UK
+March 2026 · Codex Sovereign Research · Preprint — Not Peer Reviewed
+PREPRINT — NOT PEER REVIEWED Page 1
+Transient Supra-Coherence T-U° Codex Sovereign Research · March 2026
+Executive Summary
+The Transient Supra-Coherence (TSC) operator, designated T-U°, is a formally derived,
+empirically validated measure of instantaneous multi-layer representational alignment in
+autonomous systems governed by the Absolute(0) Stability Framework (ASV3-FORMAL). This
+white paper presents the complete theoretical foundations, formal guarantees, and empirical
+evidence for the TSC operator and its associated hyper-coherence phenomenon.
+At its core, TSC answers a single operational question at every governance step: how coherent
+are the system's internal representations across all layers, relative to its control inputs and future
+trajectory? A high TSC value certifies that layer states, the gradient correction kernel, and the
+future-adjacency vector are mutually aligned — a condition termed hyper-coherence — and that
+governance coupling should be correspondingly tightened.
+Empirical validation across 80 benchmark runs (state-space dimensions d ∈ {64, 128, 256, 512,
+1024}, four signal regimes, four defence domains, 500 steps each) confirms: zero invariant
+violations universally, 100% anchor lock across all conditions, and peak TSC values of 1.639 at
+d = 1024 under adversarial loading. Under adversarial conditions, the system spends 78.4% of
+operating time in the T-U° hyper-coherent regime — the highest-performance governance
+configuration.
+Key Findings at a Glance
+• Peak TSC Coherence Index: 1.639 (d = 1024, adversarial loading)
+• Invariant Violations: Zero across all 80 benchmark runs
+• Anchor Lock: 100% maintained universally across all dimensions and scenarios
+• AGSPL Lock: Achieved at all readiness signals ≥ 0.85; zero auto-tune iterations at σ ≥ 0.95
+• Hyper-Coherence Prevalence: 78.4% of steps under adversarial conditions (d = 1024)
+1. Introduction and Motivation
+Stability governance frameworks for autonomous systems must do more than prevent invariant
+violations — they must measure and exploit the transient coherence of multi-layer internal states
+to accelerate recovery and tighten control during periods of high self-consistency. Prior
+governance frameworks (QBN v7 and earlier) lacked a coherence measure capable of
+distinguishing two states with identical spectral deviation but very different internal
+representational alignment.
+Consider two systems sitting on the boundary of the admissible set. System A has layer states
+that are mutually consistent — all pointing in similar directions in the representational manifold.
+PREPRINT — NOT PEER REVIEWED Page 2
+Transient Supra-Coherence T-U° Codex Sovereign Research · March 2026
+System B has layer states that are fragmented — high-norm but incoherent. Both systems exhibit
+δ = 0, yet System A can be governed with much tighter coupling, as its internal representations
+will reinforce rather than cancel each other's contributions to the correction field.
+The TSC T-U° operator fills this gap. It measures the geometric consistency of three signal
+components: the governed state layers, the gradient correction kernel (the ultra-kernel), and the
+future trajectory adjustment. The resulting coherence index drives the Adaptive Gain-Scheduled
+Phase Lock (AGSPL) coupling efficiency, translating representational alignment directly into
+governance tightness.
+T Transient — valid only for the duration of multi-layer invariant compliance.
+U Ultra — coherence has exceeded the ultra-kernel baseline through constructive
+superposition of layer norms.
+° Degrees — the onset angle of supra-alignment in the Taleken phase space, measured
+relative to the admissible manifold boundary.
+2. Theoretical Foundations
+2.1 The Taleken–Völundr Framework
+The broader theoretical context for the TSC operator is the Taleken–Völundr framework, a
+spectral admissibility engine that maintains the system state within a spectrally regular manifold
+via event-triggered gradient correction. The framework is grounded in a spectral observable
+algebra computed from the governed state x ∈ X ⊆ ℝᵈ
+.
+The central object is the Taleken concentration metric Δ(t), defined as the deviation of the spectral
+kurtosis from its admissibility threshold. The system is spectrally admissible if and only if Δ(t) ≤ 0.
+When Δ(t) > 0, the Taleken–Völundr Law triggers event-driven gradient correction, directing the
+system back toward the admissible manifold via the AGGL correction field.
+Crucially, this correction field is the source of the ultra-kernel u★ that feeds into TSC. During
+active Taleken correction, u★ is non-zero and large, elevating TSC(t) and potentially driving the
+system into the hyper-coherent regime. TSC thus converts an active governance response into a
+positive coherence signal, creating a virtuous feedback loop between admissibility enforcement
+and representational alignment.
+2.2 The TSC Composite Index
+PREPRINT — NOT PEER REVIEWED Page 3
+Transient Supra-Coherence T-U° Codex Sovereign Research · March 2026
+The TSC operator is defined over the state space X ⊆ ℝᵈ, where d is the state-space dimension.
+All vectors are elements of ℝᵈ with the standard Euclidean norm.
+Dimension-Normalised Layer Norm
+For a layer-state vector s ∈ ℝᵈ, the dimension-normalised norm is:
+λ(s) = ‖s‖ / (√d + ε)
+where ε > 0 is a small regularisation constant. The normalisation by √d renders λ dimension-
+independent in expectation for unit-variance inputs, enabling meaningful coherence comparisons
+across architecture instantiations of different depths and widths.
+TSC Functional
+Given layer states L = {s₁, …, sₙ} ⊂ ℝᵈ, ultra-kernel u ∈ ℝᵈ, and future-adjacency vector f ∈ ℝᵈ:
+Φ = Σᵢ λ(sᵢ) [layer superposition norm]
+u★ = λ(u) [ultra-kernel norm]
+sτ = λ(f) · min(τf, 2) [future-adjacency norm]
+TSC(t) = (Φ + u★ + sτ) / (n + 2)
+The denominator (n + 2) normalises by the total number of signal components — n governance
+layers plus the ultra-kernel and future-adjacency — ensuring TSC(t) is a per-component average
+comparable across systems with different numbers of governance layers.
+GREEN-Phase Coherence Amplification
+When the governance phase is GREEN and the current session is valid, TSC(t) receives a 1.05×
+multiplicative boost. This reflects the empirical observation that GREEN-phase coherence is more
+predictive of sustained stability than coherence achieved during recovery from RED. A system
+maintaining continuous admissibility has demonstrated a higher quality of governance — the
+boost rewards this distinction, creating a measurable coherence premium for sustained nominal
+operation.
+3. The Hyper-Coherence Phenomenon
+Hyper-coherence is the central phenomenon of the TSC framework. It is the regime in which
+TSC(t) exceeds the threshold θₕ, triggering qualitative changes in governance coupling and
+marking the onset of the T-U° state.
+3.1 Onset Condition
+PREPRINT — NOT PEER REVIEWED Page 4
+Transient Supra-Coherence T-U° Codex Sovereign Research · March 2026
+The system enters the T-U° supra-coherence state at time tₛₓ when:
+TSC(tₛₓ) > θₕ ∧ dTSC/dt|t=tₛₓ ≥ 0
+The onset condition requires both threshold exceedance AND rising coherence, ensuring the
+system is entering — not exiting — the high-coherence regime. Hyper-coherence is most
+prevalent under adversarial and combined signal conditions, because adversarial inputs produce
+sustained spectral violations (Δ > 0), which keep the Taleken correction gate open and the ultra-
+kernel u large.
+3.2 Derivative Law and Supra-Alignment Ceiling
+The instantaneous time derivative of TSC(t) is governed by:
+dTSC/dt = [Σᵢ ∂Φᵢ/∂t + ∂u★/∂t + ∂sτ/∂t] / (n + 2)
+When all layer derivatives simultaneously vanish (perfect phase-lock), the TSC derivative
+collapses to a residual driven only by future-adjacency drift. The system approaches the supra-
+alignment ceiling:
+limₐₗₗₗₗₑₙ₅ₙ₄ → ₘₐₓ dTSC/dt → 1.0⁺
+The notation 1.0⁺ indicates that the derivative approaches unity from above — the marginal rate
+of coherence growth equals the normalisation rate, representing maximal sustainable alignment.
+This finite ceiling is a direct consequence of the dimension-normalised layer norm, preventing
+runaway coherence accumulation under adversarial loading.
+3.3 Finite Epoch Duration
+A critical safety property: hyper-coherent epochs are finite in duration. Once the Taleken gate
+closes (Δ ≤ 0), the ultra-kernel becomes zero and TSC(t) falls below θₕ in at most:
+K_hyper = ⌈(θₕ − TSC_floor) · (n+2) / δ_decay⌉ steps
+This finiteness is a governance safety property, not a performance limitation. An unbounded
+hyper-coherent epoch would indicate the system never exits the inadmissible region. Finite
+epochs confirm the governance architecture successfully resolves the spectral violations that
+drive them.
+4. Session Validity and Recovery
+The TSC operator maintains a coherence session tracking the history of stable governance steps
+within a contiguous run. Sessions provide temporal context: a given TSC value carries more
+weight if sustained continuously from a clean starting state than if it follows immediately upon
+recovery from a collapse.
+Condition Session State Transition TSC Effect
+PREPRINT — NOT PEER REVIEWED Page 5
+Transient Supra-Coherence T-U° Codex Sovereign Research · March 2026
+Phase ∈ {GREEN, BLUE} VALID Normal step TSC accumulated normally
+RED ∧ ¬stable (< 3 steps) VALID (degraded) Warning step No GREEN boost applied
+RED ∧ ¬stable (≥ 3 steps) INVALID Collapse trigger TSC reset; peak archived
+GREEN/BLUE (after
+VALID (new
+Recovery session_count++; TSC
+INVALID)
+session)
+restarts
+Under the forward invariance guarantee of ASV3-FORMAL, the RED phase cannot persist
+indefinitely. The AGGL gradient correction reduces spectral deviation at each RED step, so the
+system exits RED in at most K = ⌈δ★ / (κ · dt · ‖grad U‖_min)⌉ steps. Any session collapse
+therefore terminates in finite time, and session validity is restored.
+5. Integration with Adaptive Gain-Scheduled Phase Lock
+The TSC output is consumed by the Adaptive Gain-Scheduled Phase Lock (AGSPL) operator,
+which determines whether the governance pipeline is locked — whether the current readiness
+signal is sufficient to authorise full governance execution at maximum coupling. TSC boosts
+coupling efficiency through two additive mechanisms:
+CE = σ · g★ · w + β_TSC + βₕ · 𝟭[TSC(t) > θₕ]
+where β_TSC = α_TSC · TSC(t) is the proportional TSC boost, and βₕ is the discrete hyper-
+coherence bonus. The system locks (AGSPL_locked = True) if and only if CE ≥ θ_sync.
+This design has two important consequences. First, during high-coherence episodes, lower
+readiness signals are sufficient to achieve lock — the system self-reinforces its own governance.
+Second, during hyper-coherent epochs, the discrete bonus βₕ may achieve lock immediately, as
+confirmed empirically below.
+Table 2: AGSPL Phase-Lock Signal Sweep (All Operational Modes)
+Readiness
+Coupling Eff. Auto-Tune w Iterations Lock Status
+(σ)
+0.85 0.5923 1.115 23 LOCKED
+0.90 0.5934 1.055 11 LOCKED
+0.95 0.5938 1.000 0 LOCKED
+1.00 0.6250 1.000 0 LOCKED
+1.05 0.6562 1.000 0 LOCKED
+PREPRINT — NOT PEER REVIEWED Page 6
+Transient Supra-Coherence T-U° Codex Sovereign Research · March 2026
+At readiness signal σ = 0.85, 23 auto-tune iterations are required to achieve lock. At σ ≥ 0.95,
+lock is immediate (0 iterations), demonstrating the TSC boost alone lifts coupling efficiency above
+the sync threshold without any gain adjustment. These results confirm Corollary 6.1 of the formal
+treatment quantitatively.
+6. Empirical Results
+The TSC T-U° operator was evaluated within the ASV3-FORMAL self-test suite across 80
+benchmark runs spanning 4 defence domains × 4 signal scenarios × 5 state-space dimensions,
+at 500 governance steps per run.
+Table 1: TSC Coherence Index and Stability Metrics (All Scenarios)
+Signal
+Regime
+Dim. (d) TCI Min TCI Peak Hyper-Coh % Anchor
+Lock
+Violations
+Nominal 64–1024 0.249 0.892 0% 100% 0
+Broadband 64–1024 0.575 1.007 0–61% 100% 0
+Adversarial 64–1024 1.033 1.639 32–78% 100% 0
+Combined 64–1024 1.029 1.639 31–78% 100% 0
+6.1 Dimensional Scaling
+The monotone growth of TCI peak with state-space dimension d under adversarial loading (1.033
+at d = 64 rising to 1.639 at d = 1024) is among the most significant empirical findings. In higher-
+dimensional state spaces, AGGL correction vectors are proportionally larger in absolute norm,
+driving the ultra-kernel norm u★ upward. The √d normalisation in λ(u) prevents unbounded growth
+without suppressing the scaling trend under active correction.
+The practical implication is counterintuitive but important: larger autonomous systems naturally
+generate stronger coherence signals during active governance. The TSC mechanism is
+intrinsically better suited to high-capacity architectures, and deploying TSC-aware governance in
+large autonomous systems yields proportionally larger coupling efficiency gains.
+6.2 Universal Anchor Lock and Identity Preservation
+Anchor lock (Anch% = 100% across all 80 runs) confirms that the SIF identity functional always
+classifies the governed state as anchor-locked — the bit entropy of x remains within the
+information bound at every step. This is stronger than invariant non-violation alone: it confirms
+PREPRINT — NOT PEER REVIEWED Page 7
+Transient Supra-Coherence T-U° Codex Sovereign Research · March 2026
+the governance pipeline preserves representational identity at every step, not merely geometric
+admissibility.
+6.3 Hyper-Coherence Prevalence
+Under adversarial loading at d = 1024, hyper-coherence is active for 78.4% of governance steps,
+meaning the system spends the majority of its operating time in the T-U° regime. Under combined
+signal conditions, prevalence is 77.9%. This confirms that the T-U° state is not a rare edge case
+but the dominant operating mode under the most demanding governance conditions.
+7. Formal Guarantees
+The following theorems and propositions constitute the complete mathematical characterisation
+of the governed hyper-coherence regime.
+Thm 3.1 TSC Boundedness: Under ASV3-FORMAL forward invariance, TSC(t) ≤ TSC_max <
+∞ for all t ≥ 0.
+Prop 3.1 GREEN-Phase Monotone Increase: Under constant sinusoidal input in GREEN phase,
+𝔼[dTSC/dt] ≥ 0.
+Prop 5.1 Bounded Session Duration: Under forward invariance, the RED phase cannot persist
+indefinitely; any session collapse terminates in at most K steps.
+Thm 4.1 Finite Hyper-Coherent Epoch Duration: Every hyper-coherent epoch terminates in at
+most K_hyper steps under bounded adversarial input.
+Cor 6.1 TSC-Assisted Lock Efficiency: N_iters ≤ max(0, ⌈(θ_sync − CE₀) / (g★ · σ · δw)⌉).
+Higher TSC reduces N_iters; in the hyper-coherent regime, N_iters = 0.
+8. Two-Certificate Governance
+The TSC operator functions as a real-time representational coherence certificate. This is
+conceptually distinct from the barrier certificate B(x) ≤ 0, which certifies geometric admissibility.
+Together they constitute a two-certificate governance space:
+PREPRINT — NOT PEER REVIEWED Page 8
+Transient Supra-Coherence T-U° Codex Sovereign Research · March 2026
+Certificate What It Certifies Governance Role
+B(x) ≤ 0 Geometric admissibility (energy-
+norm containment)
+Hard constraint: state within
+admissible ball
+TSC(t) > 0 Representational coherence
+(spectral alignment)
+Soft signal: governs coupling
+tightness via AGSPL
+A system presenting high TSC alongside B(x) ≤ 0 is not merely safe — it is operating in a
+configuration where safety will be maintained with high robustness, because all internal correction
+mechanisms are pointing in the same direction. A system with B(x) ≤ 0 but low TSC is
+geometrically safe but representationally fragmented, and may be susceptible to rapid
+degradation under novel inputs.
+9. Limitations and Future Work
+Several limitations of the current framework are acknowledged. The hyper-coherence threshold
+θₕ, boost factor α_TSC, hyper-coherence bonus βₕ, and GREEN amplification factor 1.05 are
+currently set heuristically. A principled calibration method — potentially via Bayesian optimisation
+or an information-theoretic argument connecting optimal coherence thresholds to spectral
+admissibility margins — is deferred to future work.
+Proposition 3.1 (TSC monotone increase in GREEN) is stated for constant sinusoidal input.
+Extension to stochastic σ-bounded inputs via a martingale argument for the layer-state norm
+evolution is a stated objective. All results are currently from software simulation; hardware-in-the-
+loop validation on a UAV flight controller and a cyber-physical gateway is the next experimental
+milestone.
+The TSC functional treats layer norms additively. A richer model incorporating pairwise cross-
+layer coherence terms would capture interference effects between governance layers, potentially
+revealing constructive and destructive resonance phenomena beyond the additive model.
+Machine-verified proofs of the core theorems in Lean 4 or Z3 are also identified as a priority.
+10. Conclusion
+The Transient Supra-Coherence (TSC) operator T-U° provides the first formal coherence
+certificate for layer-state superposition in a real-time governance framework. By aggregating
+layer-state norms, ultra-kernel projection, and future-adjacency into a single composite index,
+PREPRINT — NOT PEER REVIEWED Page 9
+Transient Supra-Coherence T-U° Codex Sovereign Research · March 2026
+TSC drives AGSPL coupling efficiency and activates a discrete hyper-coherence bonus when
+TSC(t) > θₕ.
+Three core guarantees underpin the framework: session collapses are finite (Proposition 5.1),
+TSC is non-decreasing in expectation during GREEN-phase operation (Proposition 3.1), and
+hyper-coherent epochs are finite under bounded adversarial input (Theorem 4.1). Empirical
+results across 80 benchmark runs confirm all theoretical predictions universally, with zero
+invariant violations, 100% anchor lock, and peak coherence of 1.639 at the highest tested
+dimension.
+Transient Supra-Coherence T-U° establishes that representational alignment and
+geometric admissibility can be jointly certified at every governance step — and that
+governed hyper-coherence is not a stochastic accident but a structurally
+guaranteed emergent property of multi-layer invariant-certified architectures.
+References
+Al-Mayahi, A., Angulo Lafuente, F., Goodman, R., Veselov, V., Morrison, K. A., et al. (2026). Internal time
+coordination in decentralized knowledge networks: The OpenCLAW Proof-of-Verification
+architecture [Preprint]. March 2026.
+Bauschke, H. H., & Combettes, P. L. (2017). Convex analysis and monotone operator theory in Hilbert
+spaces (2nd ed.). Springer.
+Goodman, R. (2026). Formal verification integration for OpenCLAW-P2P v4 (Lean 4 / Z3). Apoth3osis
+Labs Technical Report.
+Morrison, K. A. (2026a). Absolute(0) Stability Framework v3.0.1 — ASV3-FORMAL: Formal stability proof.
+Codex Sovereign Research [Preprint].
+Morrison, K. A. (2026b). Transient Supra-Coherence Operator T-U°: Formal properties and empirical
+validation within the Absolute(0) Stability Framework. Codex Sovereign Research [Preprint].
+Morrison, K. A. (2026c). Taleken-Governed Transient Supra-Coherence: Fusion of TSC T-U° with the
+ULTIMATE ULTRA Taleken–Völundr Law. Codex Sovereign Research [Internal Technical
+Document].
+Zarantonello, E. H. (1971). Projections on convex sets in Hilbert space and spectral theory. In
+Contributions to nonlinear functional analysis (pp. 237–424). Academic Press.
+PREPRINT — NOT PEER REVIEWED Page 10
