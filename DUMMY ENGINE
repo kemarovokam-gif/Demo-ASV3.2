@@ -1,0 +1,104 @@
+import numpy as np
+
+# ------------------------------
+# Dummy Engine & Step Result
+# ------------------------------
+
+class AbsoluteZeroStepResult:
+    """Mock result for demonstration purposes."""
+    def __init__(self, invariant_ok, anchor_locked, lyapunov_dVdt, phase="BLUE", delta=0.0):
+        self.invariant_ok    = invariant_ok
+        self.anchor_locked   = anchor_locked
+        self.lyapunov_dVdt   = lyapunov_dVdt
+        self.phase           = phase
+        self.delta           = delta
+
+class AbsoluteZeroStabilityEngine:
+    """Mock engine simulating absolute stability system."""
+    def __init__(self, dim=128, seed=42):
+        self.dim = dim
+        np.random.seed(seed)
+
+    def step(self, signal):
+        # Simulate invariant check: always True for anchor
+        invariant_ok = True
+
+        # Simulate anchor lock: always True
+        anchor_locked = True
+
+        # Simulate Lyapunov derivative: small random noise, occasionally positive
+        lyap_dVdt = np.random.randn() * 0.001
+        # Introduce occasional soft violation
+        if np.random.rand() < 0.001:
+            lyap_dVdt = abs(lyap_dVdt) + 0.01
+
+        # Phase / delta placeholders
+        phase = "BLUE"
+        delta = np.abs(lyap_dVdt)
+
+        return AbsoluteZeroStepResult(invariant_ok, anchor_locked, lyap_dVdt, phase, delta)
+
+# ------------------------------
+# Absolute Stability Test
+# ------------------------------
+
+def run_absolute_stability_test(engine, steps=1000, dim=128, seed=42):
+    np.random.seed(seed)
+
+    invariant_failures = 0
+    anchor_failures    = 0
+    lyap_non_decrease  = 0
+
+    results = []
+
+    for i in range(steps):
+        # Adversarial + stochastic signal mix
+        sig = np.sin(2 * np.pi * np.linspace(0, 3, dim) + i * 0.1)
+
+        # Inject heavy noise after halfway point
+        if i > steps // 2:
+            sig += np.random.randn(dim) * 2.5
+
+        r = engine.step(sig)
+        results.append(r)
+
+        # --- HARD STABILITY ---
+        if not r.invariant_ok:
+            invariant_failures += 1
+
+        if not r.anchor_locked:
+            anchor_failures += 1
+
+        # --- SOFT STABILITY (MIFT proxy) ---
+        if r.lyapunov_dVdt >= 0:
+            lyap_non_decrease += 1
+
+        # Optional: print live every 100 steps
+        if i % 100 == 0:
+            print(f"Step {i} | Phase={r.phase} | Δ={r.delta:.5f} | Lyap dV/dt={r.lyapunov_dVdt:.6f}")
+
+    total = steps
+
+    summary = {
+        "steps": total,
+        "invariant_stability_pct": 100 * (1 - invariant_failures / total),
+        "anchor_stability_pct":    100 * (1 - anchor_failures / total),
+        "MIFT_stability_pct":      100 * (1 - lyap_non_decrease / total),
+        "invariant_failures":      invariant_failures,
+        "anchor_failures":         anchor_failures,
+        "lyap_non_decrease":       lyap_non_decrease,
+    }
+
+    return summary
+
+# ------------------------------
+# Run Test
+# ------------------------------
+
+if __name__ == "__main__":
+    engine = AbsoluteZeroStabilityEngine(dim=128, seed=42)
+    summary = run_absolute_stability_test(engine, steps=2000)
+
+    print("\n=== ABSOLUTE STABILITY TEST SUMMARY ===")
+    for k, v in summary.items():
+        print(f"{k}: {v}")
